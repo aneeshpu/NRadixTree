@@ -2,7 +2,7 @@ using NUnit.Framework;
 using NUnit.Framework.SyntaxHelpers;
 using RadixTree;
 
-namespace RadixTreeTest
+namespace NodeTest
 {
     [TestFixture]
     public class StringTest

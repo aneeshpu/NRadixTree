@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace RadixTree
@@ -30,38 +29,42 @@ namespace RadixTree
             Add(potentialChild);
         }
 
-        private bool Add(Node<T> potentialChild)
+        private bool Add(Node<T> theNewChild)
         {
-            if (Contains(potentialChild))
-                throw new DuplicateKeyException(string.Format("Duplicate key: '{0}'", potentialChild.key));
+            if (Contains(theNewChild))
+                throw new DuplicateKeyException(string.Format("Duplicate key: '{0}'", theNewChild.key));
 
-            if(!IsReallyMyChild(potentialChild))
+            if (!IsParentOf(theNewChild))
                 return false;
 
-            bool foundParentAmongChildren = FindParentAmongChildren(potentialChild);
+            bool childrenObligedRequest = RequestChildrenToOwn(theNewChild);
+            if (childrenObligedRequest) return true;
 
-            if (foundParentAmongChildren) return true;
-            AcceptAsOwnChild(potentialChild);
-
+            AcceptAsOwnChild(theNewChild);
             return true;
         }
 
-        private bool FindParentAmongChildren(Node<T> potentialChild)
+        private bool RequestChildrenToOwn(Node<T> newChild)
         {
             return
                 children.Exists(
                     existingChild =>
-                    existingChild.MergeWith(potentialChild) || existingChild.Add(potentialChild) ||
-                    ForkANewChildAndAddChildren(existingChild, potentialChild));
+                    existingChild.MergeIfSameAs(newChild) || existingChild.Add(newChild) ||
+                    ForkANewChildAndAddChildren(existingChild, newChild));
         }
 
-        private bool MergeWith(Node<T> potentialChild)
+        private bool MergeIfSameAs(Node<T> potentialChild)
         {
-            if (!(IsTheSameAs(potentialChild) && IsMarkedForDeletion()))
+            if (!IsTheSameAs(potentialChild) || IsNotUnrealNode())
                 return false;
 
             value = potentialChild.value;
             return true;
+        }
+
+        private bool IsNotUnrealNode()
+        {
+            return !IsUnrealNode();
         }
 
         private void Disown(Node<T> existingChild)
@@ -82,41 +85,43 @@ namespace RadixTree
 
         private bool ForkANewChildAndAddChildren(Node<T> existingChild, Node<T> newChild)
         {
-            if (!existingChild.IsMySibling(newChild))
+            if (existingChild.IsNotMySibling(newChild))
                 return false;
 
-            string keyForNewParent = existingChild.CommonBeginningInKeys(newChild);
-            keyForNewParent = keyForNewParent.Trim();
-            var surrogateParent = new Node<T>(keyForNewParent, default(T));
+            var surrogateParent = MakeASurrogateParent(existingChild, newChild);
+            if (surrogateParent.IsTheSameAs(this))
+                return false;
 
-            if (IsAlreadyAddedUnderTheCorrectParent(surrogateParent))
-            {
-                AcceptAsOwnChild(newChild);
-                return true;
-            }
+            SwapChildren(existingChild, newChild, surrogateParent);
+            return true;
+        }
 
-            if (newChild.IsTheSameAs(surrogateParent))
-            {
-                surrogateParent = newChild;
-            }
+        private bool IsNotMySibling(Node<T> newChild)
+        {
+            return !IsMySibling(newChild);
+        }
 
+        private void SwapChildren(Node<T> existingChild, Node<T> newChild, Node<T> surrogateParent)
+        {
             surrogateParent.AcceptAsOwnChild(existingChild)
                 .AcceptAsOwnChild(newChild);
 
             AcceptAsOwnChild(surrogateParent);
             Disown(existingChild);
+        }
 
-            return true;
+        private Node<T> MakeASurrogateParent(Node<T> existingChild, Node<T> newChild)
+        {
+            string keyForNewParent = existingChild.CommonBeginningInKeys(newChild);
+            keyForNewParent = keyForNewParent.Trim();
+            var surrogateParent = new Node<T>(keyForNewParent, default(T));
+
+            return surrogateParent.IsTheSameAs(newChild) ? newChild : surrogateParent;
         }
 
         private bool IsTheSameAs(Node<T> parent)
         {
             return Equals(parent);
-        }
-
-        private bool IsAlreadyAddedUnderTheCorrectParent(Node<T> surrogateParent)
-        {
-            return Equals(surrogateParent);
         }
 
         private bool IsMySibling(Node<T> potentialSibling)
@@ -129,7 +134,7 @@ namespace RadixTree
             return key.CommonBeginningWith(potentialSibling.key);
         }
 
-        internal virtual bool IsReallyMyChild(Node<T> potentialChild)
+        internal virtual bool IsParentOf(Node<T> potentialChild)
         {
             return potentialChild.key.StartsWith(key);
         }
@@ -180,14 +185,14 @@ namespace RadixTree
 
         private bool Contains(Node<T> child)
         {
-            if (Equals(child) && IsMarkedForDeletion()) return false;
+            if (Equals(child) && IsUnrealNode()) return false;
 
             if (Equals(child)) return true;
 
             return children.Exists(node => node.Contains(child));
         }
 
-        private bool IsMarkedForDeletion()
+        private bool IsUnrealNode()
         {
             return value == null;
         }
@@ -208,31 +213,26 @@ namespace RadixTree
 
         private List<T> SearchInMyChildren(Node<T> nodeBeingSearchedFor)
         {
-            var searchResults = new List<T>();
+            List<T> searchResults = null;
 
-            children.Exists(node =>
-                                {
-                                    if (nodeBeingSearchedFor.IsReallyMyChild(node))
-                                    {
-                                        searchResults = node.MeAndMyDescendants();
-                                        return true;
-                                    }
-
-                                    if (node.IsReallyMyChild(nodeBeingSearchedFor))
-                                    {
-                                        searchResults = node.Search(nodeBeingSearchedFor);
-                                        return true;
-                                    }
-                                    return false;
-                                });
+            children.Exists(existingChild => (searchResults = existingChild.SearchUpAndDown(nodeBeingSearchedFor)).Count > 0);
 
             return searchResults;
+        }
+
+        private List<T> SearchUpAndDown(Node<T> node)
+        {
+            if (node.IsParentOf(this))
+                return MeAndMyDescendants();
+
+            return IsParentOf(node) ? Search(node) : new List<T>();
+
         }
 
         private List<T> MeAndMyDescendants()
         {
             var meAndMyDescendants = new List<T>();
-            if (!IsMarkedForDeletion())
+            if (!IsUnrealNode())
                 meAndMyDescendants.Add(value);
 
             children.ForEach(child => meAndMyDescendants.AddRange(child.MeAndMyDescendants()));
@@ -247,7 +247,7 @@ namespace RadixTree
 
         private long Size(long size)
         {
-            if (!IsMarkedForDeletion())
+            if (!IsUnrealNode())
                 size++;
 
             children.ForEach(node => size += node.Size());
@@ -284,13 +284,16 @@ namespace RadixTree
             return new RootNode<T>();
         }
 
-        private class RootNode<T>:Node<T>
+        #region Nested type: RootNode
+
+        private class RootNode<T> : Node<T>
         {
-            internal override bool IsReallyMyChild(Node<T> potentialChild)
+            internal override bool IsParentOf(Node<T> potentialChild)
             {
                 return true;
             }
         }
-    }
 
+        #endregion
+    }
 }
