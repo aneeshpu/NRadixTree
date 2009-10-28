@@ -284,8 +284,6 @@ namespace RadixTree
             return new RootNode<T>();
         }
 
-        #region Nested type: RootNode
-
         private class RootNode<T> : Node<T>
         {
             internal override bool IsParentOf(Node<T> potentialChild)
@@ -294,6 +292,5 @@ namespace RadixTree
             }
         }
 
-        #endregion
     }
 }
