@@ -2,13 +2,13 @@ using System.Collections.Generic;
 
 namespace RadixTree
 {
-    public class Node<T> where T : class
+    public class Node<T>
     {
         private readonly List<Node<T>> children = new List<Node<T>>();
         private readonly string key;
         private T value;
 
-        protected Node(string key, T value)
+        public Node(string key, T value)
         {
             this.key = key;
             this.value = value;
@@ -29,41 +29,38 @@ namespace RadixTree
             Add(potentialChild);
         }
 
-        private void Add(Node<T> potentialChild)
+        private bool Add(Node<T> potentialChild)
         {
-            if (Contains(potentialChild)) throw new DuplicateKeyException(string.Format("Duplicate key: '{0}'", potentialChild.key));
+            if (Contains(potentialChild))
+                throw new DuplicateKeyException(string.Format("Duplicate key: '{0}'", potentialChild.key));
+
+            if(!IsReallyMyChild(potentialChild))
+                return false;
+
             bool foundParentAmongChildren = FindParentAmongChildren(potentialChild);
 
-            if (foundParentAmongChildren) return;
+            if (foundParentAmongChildren) return true;
             AcceptAsOwnChild(potentialChild);
+
+            return true;
         }
 
         private bool FindParentAmongChildren(Node<T> potentialChild)
         {
-            return children.Exists(existingChild =>
-                                       {
-                                           if(existingChild.MergeWith(potentialChild))
-                                               return true;
-
-                                           if (existingChild.IsReallyMyChild(potentialChild))
-                                           {
-                                               existingChild.Add(potentialChild);
-                                               return true;
-                                           }
-
-                                           return ForkANewChildAndAddChildren(existingChild, potentialChild);
-                                       });
+            return
+                children.Exists(
+                    existingChild =>
+                    existingChild.MergeWith(potentialChild) || existingChild.Add(potentialChild) ||
+                    ForkANewChildAndAddChildren(existingChild, potentialChild));
         }
 
         private bool MergeWith(Node<T> potentialChild)
         {
-            if (IsTheSameAs(potentialChild) && IsMarkedForDeletion())
-            {
-                value = potentialChild.value;
-                return true;
-            }
+            if (!(IsTheSameAs(potentialChild) && IsMarkedForDeletion()))
+                return false;
 
-            return false;
+            value = potentialChild.value;
+            return true;
         }
 
         private void Disown(Node<T> existingChild)
@@ -71,9 +68,10 @@ namespace RadixTree
             children.Remove(existingChild);
         }
 
-        private void AcceptAsOwnChild(Node<T> child)
+        private Node<T> AcceptAsOwnChild(Node<T> child)
         {
             if (NotItself(child)) children.Add(child);
+            return this;
         }
 
         private bool NotItself(Node<T> child)
@@ -83,7 +81,7 @@ namespace RadixTree
 
         private bool ForkANewChildAndAddChildren(Node<T> existingChild, Node<T> newChild)
         {
-            if(!existingChild.IsMySibling(newChild))
+            if (!existingChild.IsMySibling(newChild))
                 return false;
 
             string keyForNewParent = existingChild.CommonBeginningInKeys(newChild);
@@ -101,8 +99,8 @@ namespace RadixTree
                 surrogateParent = newChild;
             }
 
-            surrogateParent.AcceptAsOwnChild(existingChild);
-            surrogateParent.AcceptAsOwnChild(newChild);
+            surrogateParent.AcceptAsOwnChild(existingChild)
+                .AcceptAsOwnChild(newChild);
 
             AcceptAsOwnChild(surrogateParent);
             Disown(existingChild);
@@ -130,7 +128,7 @@ namespace RadixTree
             return key.CommonBeginningWith(potentialSibling.key);
         }
 
-        private bool IsReallyMyChild(Node<T> potentialChild)
+        internal virtual bool IsReallyMyChild(Node<T> potentialChild)
         {
             return potentialChild.key.StartsWith(key);
         }
@@ -157,7 +155,7 @@ namespace RadixTree
 
         public T Find(string key)
         {
-            var childBeingSearchedFor = new Node<T>(key, null);
+            var childBeingSearchedFor = new Node<T>(key, default(T));
             return Find(childBeingSearchedFor);
         }
 
@@ -176,7 +174,7 @@ namespace RadixTree
 
         public bool Contains(string key)
         {
-            return Contains(new Node<T>(key, null));
+            return Contains(new Node<T>(key, default(T)));
         }
 
         private bool Contains(Node<T> child)
@@ -278,6 +276,19 @@ namespace RadixTree
         public override int GetHashCode()
         {
             return (key != null ? key.GetHashCode() : 0);
+        }
+
+        public static Node<T> Root()
+        {
+            return new Root<T>();
+        }
+    }
+
+    internal class Root<T> : Node<T>
+    {
+        internal override bool IsReallyMyChild(Node<T> potentialChild)
+        {
+            return true;
         }
     }
 }

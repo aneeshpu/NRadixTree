@@ -7,13 +7,13 @@ using RadixTree;
 namespace RadixTreeTest
 {
     [TestFixture]
-    public class RadixTreeTest {
+    public class NodeTest {
 
         Node<String> tree; 
     
         [SetUp]
         public void CreateTree() {
-            tree = new Node<String>();
+            tree = Node<string>.Root();
         }
     
         [Test]
@@ -80,7 +80,7 @@ namespace RadixTreeTest
     
         [Test]
         public void TestDuplicatesNotAllowed() {
-            var trie = new Node<String>();
+            var trie = Node<string>.Root();
 
             trie.Insert("apple", "apple");
 
@@ -112,7 +112,7 @@ namespace RadixTreeTest
 
         [Test]
         public void TestDeleteNodeWithNoChildren() {
-            var trie = new Node<String>();
+            var trie = Node<string>.Root();
             trie.Insert("apple", "apple");
             Assert.That(trie.Delete("apple"));
         }
@@ -130,7 +130,7 @@ namespace RadixTreeTest
     
         [Test]
         public void TestDeleteNodeWithMultipleChildren() {
-            var trie = new Node<String>();
+            var trie = Node<string>.Root();
             trie.Insert("apple", "apple");
             trie.Insert("applepie", "applepie");
             trie.Insert("applecrisp", "applecrisp");
@@ -148,7 +148,7 @@ namespace RadixTreeTest
 
         [Test]
         public void TestCantDeleteSomethingThatWasAlreadyDeleted() {
-            var trie = new Node<String>();
+            var trie = Node<string>.Root();
             trie.Insert("apple", "apple");
             trie.Delete("apple");
             Assert.That(trie.Delete("apple"), Is.False);
@@ -172,7 +172,7 @@ namespace RadixTreeTest
     
         [Test]
         public void TestSiblingsNotAffectedWhenOneIsDeleted() {
-            var trie = new Node<String>();
+            var trie = Node<string>.Root();
             trie.Insert("apple", "apple");
             trie.Insert("ball", "ball");
         
@@ -183,7 +183,7 @@ namespace RadixTreeTest
     
         [Test]
         public void TestCantDeleteUnrealNode() {
-            var trie = new Node<String>();
+            var trie = Node<string>.Root();
             trie.Insert("apple", "apple");
             trie.Insert("ape", "ape");
 
