@@ -1,13 +1,12 @@
-using System;
 using System.Collections.Generic;
 
 namespace RadixTree
 {
     public class Node<T> where T : class
     {
+        private readonly List<Node<T>> children = new List<Node<T>>();
         private readonly string key;
         private T value;
-        private readonly List<Node<T>> children = new List<Node<T>>();
 
         protected Node(string key, T value)
         {
@@ -15,42 +14,56 @@ namespace RadixTree
             this.value = value;
         }
 
-        public Node(){}
+        public Node()
+        {
+        }
+
+        protected bool HasChildren
+        {
+            get { return children.Count > 0; }
+        }
 
         public void Insert(string key, T value)
         {
-            if (Contains(key)) throw new DuplicateKeyException(string.Format("Duplicate key: '{0}'", key));
-
             var potentialChild = new Node<T>(key, value);
-            var foundParent = children.Exists(existingChild =>
-                                             {
-                                                 if (existingChild.IsTheSameAs(key) && existingChild.IsMarkedForDeletion())
-                                                 {
-                                                     existingChild.MergeWith(value);
-                                                     return true;
-                                                 }
-                                                 if (existingChild.IsReallyMyChild(potentialChild))
-                                                 {
-                                                     existingChild.Insert(key, value);
-                                                     return true;
-                                                 }
+            Add(potentialChild);
+        }
 
-                                                 if (existingChild.IsMySibling(potentialChild))
-                                                 {
-                                                     ForkANewChildAndAddChildren(existingChild, potentialChild);
-                                                     return true;
-                                                 }
+        private void Add(Node<T> potentialChild)
+        {
+            if (Contains(potentialChild)) throw new DuplicateKeyException(string.Format("Duplicate key: '{0}'", potentialChild.key));
+            bool foundParentAmongChildren = FindParentAmongChildren(potentialChild);
 
-                                                 return false;
-                                             });
-
-            if(foundParent) return;
+            if (foundParentAmongChildren) return;
             AcceptAsOwnChild(potentialChild);
         }
 
-        private void MergeWith(T value)
+        private bool FindParentAmongChildren(Node<T> potentialChild)
         {
-            this.value = value;
+            return children.Exists(existingChild =>
+                                       {
+                                           if(existingChild.MergeWith(potentialChild))
+                                               return true;
+
+                                           if (existingChild.IsReallyMyChild(potentialChild))
+                                           {
+                                               existingChild.Add(potentialChild);
+                                               return true;
+                                           }
+
+                                           return ForkANewChildAndAddChildren(existingChild, potentialChild);
+                                       });
+        }
+
+        private bool MergeWith(Node<T> potentialChild)
+        {
+            if (IsTheSameAs(potentialChild) && IsMarkedForDeletion())
+            {
+                value = potentialChild.value;
+                return true;
+            }
+
+            return false;
         }
 
         private void Disown(Node<T> existingChild)
@@ -60,7 +73,7 @@ namespace RadixTree
 
         private void AcceptAsOwnChild(Node<T> child)
         {
-            if(NotItself(child)) children.Add(child);
+            if (NotItself(child)) children.Add(child);
         }
 
         private bool NotItself(Node<T> child)
@@ -68,19 +81,22 @@ namespace RadixTree
             return !Equals(child);
         }
 
-        private void ForkANewChildAndAddChildren(Node<T> existingChild, Node<T> newChild)
+        private bool ForkANewChildAndAddChildren(Node<T> existingChild, Node<T> newChild)
         {
-            var keyForNewParent = existingChild.CommonBeginningInKeys(newChild);
+            if(!existingChild.IsMySibling(newChild))
+                return false;
+
+            string keyForNewParent = existingChild.CommonBeginningInKeys(newChild);
             keyForNewParent = keyForNewParent.Trim();
             var surrogateParent = new Node<T>(keyForNewParent, default(T));
 
-            if(IsAlreadyAddedUnderTheCorrectParent(surrogateParent))
+            if (IsAlreadyAddedUnderTheCorrectParent(surrogateParent))
             {
                 AcceptAsOwnChild(newChild);
-                return;
+                return true;
             }
 
-            if(newChild.IsTheSameAs(surrogateParent))
+            if (newChild.IsTheSameAs(surrogateParent))
             {
                 surrogateParent = newChild;
             }
@@ -90,6 +106,8 @@ namespace RadixTree
 
             AcceptAsOwnChild(surrogateParent);
             Disown(existingChild);
+
+            return true;
         }
 
         private bool IsTheSameAs(Node<T> parent)
@@ -109,13 +127,7 @@ namespace RadixTree
 
         private string CommonBeginningInKeys(Node<T> potentialSibling)
         {
-            String commonStart = String.Empty;
-            foreach (var character in key)
-            {
-                if (!potentialSibling.key.StartsWith(commonStart + character)) break;
-                commonStart += character;
-            }
-            return commonStart;
+            return key.CommonBeginningWith(potentialSibling.key);
         }
 
         private bool IsReallyMyChild(Node<T> potentialChild)
@@ -126,9 +138,9 @@ namespace RadixTree
         public bool Delete(string key)
         {
             Node<T> nodeToBeDeleted = children.Find(child => child.Find(key) != null);
-            if(nodeToBeDeleted == null) return false;
+            if (nodeToBeDeleted == null) return false;
 
-            if(nodeToBeDeleted.HasChildren)
+            if (nodeToBeDeleted.HasChildren)
             {
                 nodeToBeDeleted.MarkAsDeleted();
                 return true;
@@ -143,31 +155,37 @@ namespace RadixTree
             value = default(T);
         }
 
-        protected bool HasChildren
-        {
-            get { return children.Count > 0; }
-        }
-
         public T Find(string key)
         {
-            if (this.key == key) return value;
-            var node = default(T);
+            var childBeingSearchedFor = new Node<T>(key, null);
+            return Find(childBeingSearchedFor);
+        }
+
+        private T Find(Node<T> childBeingSearchedFor)
+        {
+            if (Equals(childBeingSearchedFor)) return value;
+            T node = default(T);
             children.Find(child =>
-                                         {
-                                             node= child.Find(key);
-                                             return node!= null;
-                                         });
-            if(node == null) return default(T);
+                              {
+                                  node = child.Find(childBeingSearchedFor);
+                                  return node != null;
+                              });
+            if (node == null) return default(T);
             return node;
         }
 
         public bool Contains(string key)
         {
-            if (this.key == key && IsMarkedForDeletion()) return false;
+            return Contains(new Node<T>(key, null));
+        }
 
-            if(this.key == key) return true;
+        private bool Contains(Node<T> child)
+        {
+            if (Equals(child) && IsMarkedForDeletion()) return false;
 
-            return children.Exists(node => node.Contains(key));
+            if (Equals(child)) return true;
+
+            return children.Exists(node => node.Contains(child));
         }
 
         private bool IsMarkedForDeletion()
@@ -177,30 +195,33 @@ namespace RadixTree
 
         public List<T> Search(string keyPrefix)
         {
-            if(IsTheSameAs(keyPrefix))
-            {
-                return MeAndMyDescendants();
-            }
-
-            return SearchInMyChildren(keyPrefix);
+            var nodeBeingSearchedFor = new Node<T>(keyPrefix, default(T));
+            return Search(nodeBeingSearchedFor);
         }
 
-        private List<T> SearchInMyChildren(string keyPrefix)
+        private List<T> Search(Node<T> nodeBeingSearchedFor)
+        {
+            if (IsTheSameAs(nodeBeingSearchedFor))
+                return MeAndMyDescendants();
+
+            return SearchInMyChildren(nodeBeingSearchedFor);
+        }
+
+        private List<T> SearchInMyChildren(Node<T> nodeBeingSearchedFor)
         {
             var searchResults = new List<T>();
-            var tempNode = new Node<T>(keyPrefix,null);
 
             children.Exists(node =>
                                 {
-                                    if(tempNode.IsReallyMyChild(node))
+                                    if (nodeBeingSearchedFor.IsReallyMyChild(node))
                                     {
                                         searchResults = node.MeAndMyDescendants();
                                         return true;
-                                    }   
-                 
-                                    if(node.IsReallyMyChild(keyPrefix))
+                                    }
+
+                                    if (node.IsReallyMyChild(nodeBeingSearchedFor))
                                     {
-                                        searchResults = node.Search(keyPrefix);
+                                        searchResults = node.Search(nodeBeingSearchedFor);
                                         return true;
                                     }
                                     return false;
@@ -209,47 +230,29 @@ namespace RadixTree
             return searchResults;
         }
 
-        private bool IsReallyMyChild(string keyPrefix)
-        {
-            return keyPrefix.StartsWith(key);
-        }
-
         private List<T> MeAndMyDescendants()
         {
             var meAndMyDescendants = new List<T>();
-            if(!IsMarkedForDeletion())
+            if (!IsMarkedForDeletion())
                 meAndMyDescendants.Add(value);
 
             children.ForEach(child => meAndMyDescendants.AddRange(child.MeAndMyDescendants()));
             return meAndMyDescendants;
         }
 
-        private bool IsTheSameAs(string keyPrefix)
-        {
-            return key == keyPrefix;
-        }
-
         public long Size()
         {
-            long size = 0;
-            children.ForEach(node =>
-                                 {
-                                     if (!node.IsMarkedForDeletion())
-                                         size++;
-                                     size += node.Size();
-                                 });
+            const long size = 0;
+            return Size(size);
+        }
+
+        private long Size(long size)
+        {
+            if (!IsMarkedForDeletion())
+                size++;
+
+            children.ForEach(node => size += node.Size());
             return size;
-        }
-
-        public string Complete(string prefix)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void PrintString(int depth)
-        {
-            Console.WriteLine(string.Format("{0}{1}",depth,key));
-            children.ForEach(node => node.PrintString(++depth));
         }
 
         public override string ToString()
@@ -276,6 +279,5 @@ namespace RadixTree
         {
             return (key != null ? key.GetHashCode() : 0);
         }
-    }    
-
+    }
 }

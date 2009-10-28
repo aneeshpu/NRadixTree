@@ -9,11 +9,11 @@ namespace RadixTreeTest
     [TestFixture]
     public class RadixTreeTest {
 
-        RadixTree<String> tree; 
+        Node<String> tree; 
     
         [SetUp]
         public void CreateTree() {
-            tree = new RadixTree<String>();
+            tree = new Node<String>();
         }
     
         [Test]
@@ -80,7 +80,7 @@ namespace RadixTreeTest
     
         [Test]
         public void TestDuplicatesNotAllowed() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
 
             trie.Insert("apple", "apple");
 
@@ -107,20 +107,19 @@ namespace RadixTreeTest
             tree.Insert("360 xbox games 360", "360 xbox games 360");
             tree.Insert("xbox xbox 361", "xbox xbox 361");
         
-            tree.PrintString(0);
             Assert.That(tree.Size(), Is.EqualTo(12));
         }
 
         [Test]
         public void TestDeleteNodeWithNoChildren() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
             trie.Insert("apple", "apple");
             Assert.That(trie.Delete("apple"));
         }
 
         [Test, Ignore("This contradicts with TestDeleteNodeWithMultipleChildren")]
         public void TestDeleteNodeWithOneChild() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
             trie.Insert("apple", "apple");
             trie.Insert("applepie", "applepie");
             Assert.That(trie.Contains("apple"));
@@ -131,7 +130,7 @@ namespace RadixTreeTest
     
         [Test]
         public void TestDeleteNodeWithMultipleChildren() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
             trie.Insert("apple", "apple");
             trie.Insert("applepie", "applepie");
             trie.Insert("applecrisp", "applecrisp");
@@ -143,13 +142,13 @@ namespace RadixTreeTest
     
         [Test]
         public void TestCantDeleteSomethingThatDoesntExist() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
             Assert.That(trie.Delete("apple"), Is.False);
         }
 
         [Test]
         public void TestCantDeleteSomethingThatWasAlreadyDeleted() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
             trie.Insert("apple", "apple");
             trie.Delete("apple");
             Assert.That(trie.Delete("apple"), Is.False);
@@ -157,7 +156,7 @@ namespace RadixTreeTest
 
         [Test, Ignore("Ignoring all deletes for now. But fix it later..")]
         public void TestChildrenNotAffectedWhenOneIsDeleted() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
             trie.Insert("apple", "apple");
             trie.Insert("appleshack", "appleshack");
             trie.Insert("applepie", "applepie");
@@ -173,7 +172,7 @@ namespace RadixTreeTest
     
         [Test]
         public void TestSiblingsNotAffectedWhenOneIsDeleted() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
             trie.Insert("apple", "apple");
             trie.Insert("ball", "ball");
         
@@ -184,7 +183,7 @@ namespace RadixTreeTest
     
         [Test]
         public void TestCantDeleteUnrealNode() {
-            var trie = new RadixTree<String>();
+            var trie = new Node<String>();
             trie.Insert("apple", "apple");
             trie.Insert("ape", "ape");
 
@@ -309,23 +308,6 @@ namespace RadixTreeTest
             tree.Delete("appleshack");
 
             Assert.That(tree.Size(), Is.EqualTo(1));
-        }    
-    
-        [Test, Ignore("What is this Complete thing")]
-        public void TestComplete() {
-            var trie = new RadixTree<String>();
-    	
-            trie.Insert("apple", "apple");
-            trie.Insert("appleshack", "appleshack");
-            trie.Insert("applepie", "applepie");
-            trie.Insert("applegold", "applegold");
-            trie.Insert("applegood", "applegood");
-        
-            Assert.That(trie.Complete("z"), Is.EqualTo(""));
-            Assert.That(trie.Complete("a"), Is.EqualTo("apple"));
-            Assert.That(trie.Complete("app"), Is.EqualTo("apple"));
-            Assert.That(trie.Complete("apples"), Is.EqualTo("appleshack"));
-            Assert.That(trie.Complete("appleg"), Is.EqualTo("applego"));
         }
 
         [Test]
@@ -338,7 +320,7 @@ namespace RadixTreeTest
         }
     }
 
-    public class RadixTreeForEquality: RadixTree<string>
+    public class RadixTreeForEquality: Node<string>
     {
         public RadixTreeForEquality(string key , string value ): base(key, value)
         {
