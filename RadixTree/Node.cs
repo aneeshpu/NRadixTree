@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace RadixTree
@@ -8,13 +9,13 @@ namespace RadixTree
         private readonly string key;
         private T value;
 
-        public Node(string key, T value)
+        private Node(string key, T value)
         {
             this.key = key;
             this.value = value;
         }
 
-        public Node()
+        private Node()
         {
         }
 
@@ -280,15 +281,16 @@ namespace RadixTree
 
         public static Node<T> Root()
         {
-            return new Root<T>();
+            return new RootNode<T>();
+        }
+
+        private class RootNode<T>:Node<T>
+        {
+            internal override bool IsReallyMyChild(Node<T> potentialChild)
+            {
+                return true;
+            }
         }
     }
 
-    internal class Root<T> : Node<T>
-    {
-        internal override bool IsReallyMyChild(Node<T> potentialChild)
-        {
-            return true;
-        }
-    }
 }
