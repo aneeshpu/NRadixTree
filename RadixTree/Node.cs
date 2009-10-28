@@ -146,7 +146,7 @@ namespace RadixTree
 
             if (nodeToBeDeleted.HasChildren)
             {
-                nodeToBeDeleted.MarkAsDeleted();
+                nodeToBeDeleted.MarkAsUnreal();
                 return true;
             }
 
@@ -154,7 +154,7 @@ namespace RadixTree
             return true;
         }
 
-        private void MarkAsDeleted()
+        private void MarkAsUnreal()
         {
             value = default(T);
         }
